@@ -1,51 +1,60 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+
 
 library(shiny)
-
+library(shinydashboard)
+library(DT)
+library(shinyjs)
 # Define UI for application that draws a histogram
-ui <- fluidPage(
 
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
 
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
+ui <- dashboardPage(
 
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
+  dashboardHeader(title = "ODVRE Dashboard"),
+  dashboardSidebar(
+
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("Search", icon = icon("th"), tabName = "search",
+               badgeLabel = "new", badgeColor = "green")
     )
+
+  ),
+  dashboardBody(
+    # Boxes need to be put in a row (or column)
+    fluidRow(
+     uiOutput('BDBox')
+    )
+  )
+
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+  buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
+
+
+  output$BDTable = renderDT(
+    datatable(buildingData,
+              options = list(pagelength = 400,
+                             initComplete = JS(
+                               "function(settings, json) {",
+                               "$(this.api().table().header()).css({'backround-color': '#FFF',
+                               'color': '#29476B'});",
+                               "}"))
+                             )
+  )
+
+  boxStyle = "margin-left: 1rem; margin-right: 1rem;"
+
+  output$BDBox = renderUI({
+    box(title = "RE Data",
+        fluidRow(style = boxStyle,
+                 DTOutput('BDTable')  ))
+  })
+
 }
 
-# Run the application 
+# Run the application
 shinyApp(ui = ui, server = server)
