@@ -12,6 +12,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 
 ```{r}
-data5 = read.table(file = "data/dataRealEstate.txt", sep = ";", header = TRUE)
+data5 = read.table(file = "RealEstate/data/dataRealEstate.txt", sep = ";", header = TRUE)
+```
+
+```{r}
+str(data5)
 ```
 
