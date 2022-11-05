@@ -1,0 +1,21 @@
+---
+title: "testing"
+author: "d"
+date: "2022-10-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+data5 = read.table(file = "RealEstate/data/dataRealEstate.txt", sep = ";", header = TRUE)
+```
+
+```{r}
+str(data5)
+```
+
