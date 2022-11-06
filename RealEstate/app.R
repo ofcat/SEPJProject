@@ -191,10 +191,19 @@ server <- function(input, output) {
 
     s <- input$x1_rows_selected
     #loop through districtPrice_tbl with s as index to get all PLZ that are selected
+    postcodes = c()
+    collectPostcodes = function(code) {
+      postcodes <<- c(postcodes, code)
+
+    }
+  # sapply(s, collectPostcodes(districtPrice_tbl[s]$PLZ))
+    sapply(s, function(x) collectPostcodes(districtPrice_tbl[s,]$PLZ))
+
+  #print(postcodes)
     # only show selected PLZ in barplot
     if (length(s)) {
       p <- p %>%
-        add_bars(data = filter(districtPurpose, PLZ %in% s), #[s , , drop = FALSE]
+        add_bars(data = filter(districtPurpose, PLZ %in% postcodes), #[s , , drop = FALSE]
                   x = ~zuordnung, y = ~count,  type = 'bar', color = ~PLZ)
 
     }
