@@ -9,7 +9,7 @@ library(readr)
 library(ggplot2)
 library(plotly)
 
-# you can put css here, but i would rather have it in a sepate css file
+# you can put css here, but i would rather have it in a separte css file
 #check link below
 css <- "
 
@@ -53,7 +53,7 @@ ui <- dashboardPage(skin = "black",
 
     tabItems(
       tabItem(tabName = "dashboard",
-        # Boxes need to be put in a row (or column)
+        # Boxes need to be put in a row
         # fluid row id is used for css, but this should probably be deleted
         fluidRow(id = '#first-row',
             #DTOutput('mainDataset')
@@ -61,10 +61,17 @@ ui <- dashboardPage(skin = "black",
 
             ),
         fluidRow(id='#second-row',
+                # uiOutput('districtPriceBox'),
+                # uiOutput('districtPricePlotBox')
                 uiOutput('districtPriceBox'),
-                uiOutput('districtPricePlotBox'))
+                uiOutput('districtPricePlotBox')
+                )
         ),
-      tabItem(tabName = "search")
+      tabItem(tabName = "search",
+              fluidRow(
+                # uiOutput('x1Box'),
+                # uiOutput('x2Box')
+              ))
 
   ),
 
@@ -81,8 +88,9 @@ ui <- dashboardPage(skin = "black",
 server <- function(input, output) {
 
   buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
+  names(buildingData)[names(buildingData) == 'Kaufpreis'] <- 'Kaufpreis'
   # some data cleaning definetely needed
-  buildingData$Kaufpreis.. = parse_number(buildingData$Kaufpreis..)#as.numeric(buildingData$Kaufpreis..)
+  buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)#as.numeric(buildingData$Kaufpreis)
 
 # Main dataset shown on the title page
   output$mainDataset = renderDT(
@@ -109,35 +117,76 @@ server <- function(input, output) {
 
   #Second row on dashboard tab
   ## table with two columns, auto plotting with DT
-  districtPrice_tbl = select(buildingData, PLZ, Kaufpreis..) %>%
+  districtPrice_tbl = select(buildingData, PLZ, Kaufpreis) %>%
      group_by(PLZ) %>%
       summarise(
-        medianPrice = median(Kaufpreis.., na.rm=TRUE)
+        medianPrice = median(Kaufpreis, na.rm=TRUE)
       )
 
 
-  output$districtPriceOutput = renderDT(
-    datatable(districtPrice_tbl)
+  # output$districtPriceOutput = renderDT(
+  #   datatable(districtPrice_tbl)
+  # )
+
+  output$districtPriceOutput = renderDataTable(
+    districtPrice_tbl,
+    server=FALSE
   )
 
   output$districtPriceBox = renderUI({
     box(title = "Median Prices per District", style = boxStyle, width = 6,
-        DTOutput('districtPriceOutput'))
+        DTOutput('x1'))
   })
 
-  output$districtPricePlot = renderPlot({
-    s = input$districtPriceOutput_rows_selected
-    par(mar = c(4, 4, 1, .1))
-    #choosing plots
-    plot(districtPrice_tbl, xlim = c(0, 1900))
-    #plot_ly(districtPrice_tbl, x= districtPrice_tbl$PLZ, y = districtPrice_tbl$Kaufpreis..)
-    if (length(s)) points(districtPrice_tbl[s, , drop = FALSE], pch = 19, cex = 2)
+
+
+  output$x1 <- DT::renderDataTable(districtPrice_tbl, server = FALSE)
+
+  # highlight selected rows in the scatterplot
+  output$x2 <- renderPlotly({
+    p <- plot_ly(districtPrice_tbl, x = ~PLZ, y = ~medianPrice, mode = "markers",
+                 marker = list(opacity = 1, color = "black")) %>%
+      layout(
+             xaxis = list(
+                range=c(0,1900)
+              )
+            )
+    s <- input$x1_rows_selected
+    if (length(s)) {
+      p <- p %>%
+        add_trace(data = districtPrice_tbl[ , drop = FALSE],
+                  x = ~PLZ, y = ~medianPrice, mode = "markers",
+                  marker = list(opacity = 0.2, color = "black")) %>%
+        layout(showlegend = FALSE) %>%
+        add_trace(data = districtPrice_tbl[s, , drop = FALSE],
+                  x = ~PLZ, y = ~medianPrice, mode = "markers",
+                  marker = list(opacity = 1, color = "red")) %>%
+        layout(showlegend = FALSE)
+    }
+    p
   })
+
+
+
+
+
 
   output$districtPricePlotBox = renderUI({
     box(title = "Scatterplot", style= boxStyle, width = 6,
-        plotOutput('districtPricePlot'))
+        plotlyOutput('x2'))
   })
+
+
+  ## cars example
+  ##
+  #
+  #
+  #
+
+
+
+
+
 
 
 }
