@@ -8,8 +8,9 @@ library(tidyverse)
 library(readr)
 library(ggplot2)
 library(plotly)
+library(dplyr)
 
-# you can put css here, but i would rather have it in a sepate css file
+# you can put css here, but i would rather have it in a separte css file
 #check link below
 css <- "
 
@@ -53,18 +54,25 @@ ui <- dashboardPage(skin = "black",
 
     tabItems(
       tabItem(tabName = "dashboard",
-        # Boxes need to be put in a row (or column)
+        # Boxes need to be put in a row
         # fluid row id is used for css, but this should probably be deleted
         fluidRow(id = '#first-row',
-            #DTOutput('mainDataset')
             uiOutput('mainDatasetBox')
 
             ),
         fluidRow(id='#second-row',
                 uiOutput('districtPriceBox'),
-                uiOutput('districtPricePlotBox'))
+                uiOutput('districtPricePlotBox'),
+                uiOutput('districtPriceHistBox')
+
+                )
         ),
-      tabItem(tabName = "search")
+      tabItem(tabName = "search",
+              fluidRow(
+                # uiOutput('x1Box'),
+                # uiOutput('x2Box')
+
+              ))
 
   ),
 
@@ -81,8 +89,9 @@ ui <- dashboardPage(skin = "black",
 server <- function(input, output) {
 
   buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
+  names(buildingData)[names(buildingData) == 'Kaufpreis'] <- 'Kaufpreis'
   # some data cleaning definetely needed
-  buildingData$Kaufpreis.. = parse_number(buildingData$Kaufpreis..)#as.numeric(buildingData$Kaufpreis..)
+  buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)#as.numeric(buildingData$Kaufpreis)
 
 # Main dataset shown on the title page
   output$mainDataset = renderDT(
@@ -109,35 +118,105 @@ server <- function(input, output) {
 
   #Second row on dashboard tab
   ## table with two columns, auto plotting with DT
-  districtPrice_tbl = select(buildingData, PLZ, Kaufpreis..) %>%
+  districtPrice_tbl = select(buildingData, PLZ, Kaufpreis) %>%
      group_by(PLZ) %>%
       summarise(
-        medianPrice = median(Kaufpreis.., na.rm=TRUE)
+        medianPrice = median(Kaufpreis, na.rm=TRUE)
       )
 
 
-  output$districtPriceOutput = renderDT(
-    datatable(districtPrice_tbl)
-  )
+  # Median Prices per District table
+  output$x1 <- DT::renderDataTable(districtPrice_tbl, server = FALSE)
 
   output$districtPriceBox = renderUI({
-    box(title = "Median Prices per District", style = boxStyle, width = 6,
-        DTOutput('districtPriceOutput'))
+    box(title = "Median Prices per District", style = boxStyle, width = 4,
+        DTOutput('x1'))
   })
 
-  output$districtPricePlot = renderPlot({
-    s = input$districtPriceOutput_rows_selected
-    par(mar = c(4, 4, 1, .1))
-    #choosing plots
-    plot(districtPrice_tbl, xlim = c(0, 1900))
-    #plot_ly(districtPrice_tbl, x= districtPrice_tbl$PLZ, y = districtPrice_tbl$Kaufpreis..)
-    if (length(s)) points(districtPrice_tbl[s, , drop = FALSE], pch = 19, cex = 2)
+
+
+
+  # Median Prices per District Scatter plot
+  # highlight selected rows in the scatterplot
+  output$x2 <- renderPlotly({
+    p <- plot_ly(districtPrice_tbl, x = ~PLZ, y = ~medianPrice ,mode = "markers",
+                 marker = list(opacity = 1, color = "black")) %>%
+      layout(
+             xaxis = list(
+                range=c(0,1900)
+              )
+            )
+    s <- input$x1_rows_selected
+    if (length(s)) {
+      p <- p %>%
+        add_trace(data = districtPrice_tbl[ , drop = FALSE],
+                  x = ~PLZ, y = ~medianPrice, mode = "markers",
+                  marker = list(opacity = 0.2, color = "black")) %>%
+        layout(showlegend = FALSE) %>%
+        add_trace(data = districtPrice_tbl[s, , drop = FALSE],
+                  x = ~PLZ, y = ~medianPrice, mode = "markers",
+                  marker = list(opacity = 1, color = "red")) %>%
+        layout(showlegend = FALSE)
+    }
+    p
   })
+
+
 
   output$districtPricePlotBox = renderUI({
-    box(title = "Scatterplot", style= boxStyle, width = 6,
-        plotOutput('districtPricePlot'))
+    box(title = "Scatterplot", style= boxStyle, width = 4,
+        plotlyOutput('x2'))
   })
+  # Prices Histogram
+
+
+
+  districtPurpose = select(buildingData, PLZ, zuordnung) %>%
+    group_by(zuordnung, PLZ) %>%
+    summarise(count = n(), .groups = 'drop')
+
+  districtPurpose$PLZ = as.factor(districtPurpose$PLZ)
+  districtPurpose$zuordnung = as.factor(districtPurpose$zuordnung)
+
+  plot1010 = filter(districtPurpose, PLZ == 1010 | PLZ == 1020)
+  plot1010$PLZ = as.factor(plot1010$PLZ)
+  plot1010$zuordnung = as.factor(plot1010$zuordnung)
+
+
+  output$districtPriceHist = renderPlotly({
+
+    #plot_ly(x=plot1010$zuordnung, y = plot1010$count, type = 'bar', color = plot1010$PLZ)
+
+    p = plot_ly()
+
+    s <- input$x1_rows_selected
+    #loop through districtPrice_tbl with s as index to get all PLZ that are selected
+    postcodes = c()
+    collectPostcodes = function(code) {
+      postcodes <<- c(postcodes, code)
+
+    }
+  # sapply(s, collectPostcodes(districtPrice_tbl[s]$PLZ))
+    sapply(s, function(x) collectPostcodes(districtPrice_tbl[s,]$PLZ))
+
+  #print(postcodes)
+    # only show selected PLZ in barplot
+    if (length(s)) {
+      p <- p %>%
+        add_bars(data = filter(districtPurpose, PLZ %in% postcodes), #[s , , drop = FALSE]
+                  x = ~zuordnung, y = ~count,  type = 'bar', color = ~PLZ)
+
+    }
+    p
+
+  })
+
+  output$districtPriceHistBox = renderUI({
+    box(title = "Project Purpose", style= boxStyle, width = 4,
+        plotlyOutput('districtPriceHist'))
+  })
+
+
 
 
 }
