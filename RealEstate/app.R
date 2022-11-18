@@ -56,16 +56,24 @@ ui <- dashboardPage(skin = "black",
       tabItem(tabName = "dashboard",
         # Boxes need to be put in a row
         # fluid row id is used for css, but this should probably be deleted
+        fluidRow(
+          #here for second row
+          valueBoxOutput('totalCompaniesBox'),
+          valueBoxOutput('totalCompaniesBox2'),
+          valueBoxOutput('totalCompaniesBox3')
+        ),
+        fluidRow(id='#second-row',
+                 uiOutput('districtPriceBox'),
+                 uiOutput('districtPricePlotBox'),
+                 uiOutput('districtPriceHistBox')
+
+        ),
+
         fluidRow(id = '#first-row',
             uiOutput('mainDatasetBox')
 
-            ),
-        fluidRow(id='#second-row',
-                uiOutput('districtPriceBox'),
-                uiOutput('districtPricePlotBox'),
-                uiOutput('districtPriceHistBox')
+            )
 
-                )
         ),
       tabItem(tabName = "search",
               fluidRow(
@@ -202,6 +210,7 @@ server <- function(input, output) {
   #print(postcodes)
     # only show selected PLZ in barplot
     if (length(s)) {
+      #browser(postcodes)
       p <- p %>%
         add_bars(data = filter(districtPurpose, PLZ %in% postcodes), #[s , , drop = FALSE]
                   x = ~zuordnung, y = ~count,  type = 'bar', color = ~PLZ)
@@ -216,6 +225,37 @@ server <- function(input, output) {
         plotlyOutput('districtPriceHist'))
   })
 
+
+## value boxes
+  output$totalCompaniesBox <- renderValueBox({
+    # totalNum = nrow(startUp_csv) %>%
+    #   comma(digits = 0, big.mark = '.')
+
+    valueBox(
+      'title',"Total number of StartUps", icon = icon("list"),
+      color = "purple"
+    )
+  }
+  )
+
+  output$totalCompaniesBox2 <- renderValueBox({
+    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
+    #   currency(digits = 0L, "$ ", big.mark = '.')
+    valueBox(
+      'title', "Total capital raised", icon = icon("credit-card")
+    )
+  }
+  )
+  output$totalCompaniesBox3 <- renderValueBox({
+    # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
+    # countClosed = nrow(startUp_csv)
+    # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
+     valueBox( 'title',
+     "% of operating companies", icon = icon("thumbs-up", lib = 'glyphicon'),
+      color = "yellow"
+    )
+  }
+  )
 
 
 
