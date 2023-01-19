@@ -36,11 +36,19 @@ ui <- dashboardPage(skin = "black",
 
   dashboardHeader(title = "ODVRE Dashboard"),
   dashboardSidebar(
-
+#,badgeLabel = "new", badgeColor = "green"
     sidebarMenu(
-      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-      menuItem("Search", icon = icon("th"), tabName = "search",
-               badgeLabel = "new", badgeColor = "green")
+      menuItem("Open Data",  icon = icon("dashboard"),
+               menuSubItem("Vienna Open Data", tabName = "dashboard"),
+               menuSubItem("Open Data Dataset", tabName = "open_data_dataset")
+               ),
+      menuItem("Portfolio Selection", icon = icon("th"),
+               menuSubItem("Create New Portfolio", tabName = "create_new_portfolio"),
+               menuSubItem("Explore Existing Portfolios", tabName = "explore_old_portfolios")
+               ),
+
+
+      menuItem("Calculations", tabName = "calculations", icon = icon("dashboard"))
     )
 
   ),
@@ -75,12 +83,53 @@ ui <- dashboardPage(skin = "black",
             )
 
         ),
-      tabItem(tabName = "search",
-              fluidRow(
-                # uiOutput('x1Box'),
-                # uiOutput('x2Box')
+      tabItem(tabName = 'open_data_dataset',
+              fluidRow()
+              ),
 
-              ))
+      tabItem(tabName = "create_new_portfolio",
+              fluidRow(
+                valueBoxOutput('generalInfoBox1'),
+                valueBoxOutput('generalInfoBox2'),
+                valueBoxOutput('generalInfoBox3')
+
+              ),
+              fluidRow(
+                uiOutput('testBox')
+              ),
+
+              fluidRow(
+                valueBoxOutput('selectedPropBox1'),
+                valueBoxOutput('selectedPropBox2'),
+                valueBoxOutput('selectedPropBox3')
+
+              ),
+              fluidRow(
+                uiOutput('scrapedPropDF')
+              ),
+
+              fluidRow(
+                valueBoxOutput('newPropBox1'),
+                valueBoxOutput('newPropBox2'),
+
+
+              ),
+
+              fluidRow(
+                uiOutput('newPropDF')
+              ),
+              fluidRow(
+                uiOutput('newPortfolioStat1'),
+                uiOutput('newPortfolioStat2')
+              ),
+              ),
+
+      tabItem(tabName = "calculations",
+
+              fluidRow()
+              ),
+      tabItem(tabName = 'explore_old_portfolios',
+              fluidRow())
 
   ),
 
@@ -105,14 +154,7 @@ server <- function(input, output) {
   output$mainDataset = renderDT(
     datatable(buildingData,
               options = list(pagelength = 300,
-                             scrollX = TRUE),
-              #code below can be used to use JS snippents inside R, but thats useless now
-                             # initComplete = JS(
-                             #   "function(settings, json) {",
-                             #   "$(this.api().table().header()).css({'backround-color': 'red'
-                             #  });",
-                             #   "}")),
-              filter = list(position = 'top', clear = FALSE)
+                             scrollX = TRUE), filter = list(position = 'top', clear = FALSE)
   ))
 
   # styling applied to all boxes
@@ -134,7 +176,11 @@ server <- function(input, output) {
 
 
   # Median Prices per District table
-  output$x1 <- DT::renderDataTable(districtPrice_tbl, server = FALSE)
+  #output$x1 <- DT::renderDataTable(districtPrice_tbl, server = FALSE)
+
+  output$x1 = renderDT(
+    datatable(districtPrice_tbl)
+                       %>% formatCurrency(2, '\U20AC', digits = 0))
 
   output$districtPriceBox = renderUI({
     box(title = "Median Prices per District", style = boxStyle, width = 4,
@@ -232,7 +278,7 @@ server <- function(input, output) {
     #   comma(digits = 0, big.mark = '.')
 
     valueBox(
-      'title',"Total number of StartUps", icon = icon("list"),
+      'title',"Total number of properties", icon = icon("list"),
       color = "purple"
     )
   }
@@ -242,7 +288,7 @@ server <- function(input, output) {
     # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
     #   currency(digits = 0L, "$ ", big.mark = '.')
     valueBox(
-      'title', "Total capital raised", icon = icon("credit-card")
+      'title', "Total portfolio volume in $", icon = icon("credit-card")
     )
   }
   )
@@ -251,14 +297,148 @@ server <- function(input, output) {
     # countClosed = nrow(startUp_csv)
     # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
      valueBox( 'title',
-     "% of operating companies", icon = icon("thumbs-up", lib = 'glyphicon'),
+     "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
       color = "yellow"
     )
   }
   )
 
+  ## value boxes
+  output$generalInfoBox1 <- renderValueBox({
+    # totalNum = nrow(startUp_csv) %>%
+    #   comma(digits = 0, big.mark = '.')
 
+    valueBox(
+      'title',"Total number of properties", icon = icon("list"),
+      color = "purple"
+    )
+  }
+  )
 
+  output$generalInfoBox2 <- renderValueBox({
+    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
+    #   currency(digits = 0L, "$ ", big.mark = '.')
+    valueBox(
+      'title', "Total portfolio volume in $", icon = icon("credit-card")
+    )
+  }
+  )
+  output$generalInfoBox3 <- renderValueBox({
+    # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
+    # countClosed = nrow(startUp_csv)
+    # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
+    valueBox( 'title',
+              "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
+              color = "yellow"
+    )
+  }
+  )
+
+  ## value boxes
+  output$selectedPropBox1 <- renderValueBox({
+    # totalNum = nrow(startUp_csv) %>%
+    #   comma(digits = 0, big.mark = '.')
+
+    valueBox(
+      'title',"Total number of properties", icon = icon("list"),
+      color = "purple"
+    )
+  }
+  )
+
+  output$selectedPropBox2 <- renderValueBox({
+    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
+    #   currency(digits = 0L, "$ ", big.mark = '.')
+    valueBox(
+      'title', "Total portfolio volume in $", icon = icon("credit-card")
+    )
+  }
+  )
+  output$selectedPropBox3 <- renderValueBox({
+    # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
+    # countClosed = nrow(startUp_csv)
+    # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
+    valueBox( 'title',
+              "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
+              color = "yellow"
+    )
+  }
+  )
+
+  properties = buildingData[1:100,]
+
+  #output$propertiesDT <- DT::renderDataTable(properties, server = FALSE)
+
+  output$propertiesDT = renderDT(
+    datatable(properties,
+              options = list(pagelength = 300,
+                             scrollX = TRUE), filter = list(position = 'top', clear = FALSE)
+    ))
+
+  selectedProperties = reactive({
+    input$propertiesDT_rows_selected
+  })
+  #newPortfolioRows <- input$propertiesDT_rows_selected
+  output$portfolioDT = renderDT({
+
+    newPortfolioRows <- input$propertiesDT_rows_selected
+    #newPortfolioRows = c(1,2,3),
+    datatable(properties[newPortfolioRows,],
+              extensions = 'Buttons',
+              options = list(pagelength = 300,
+                             scrollX = TRUE,
+                             dom = 'Bfrtip',
+                             buttons =
+                               list('copy', 'print', list(
+                                 extend = 'collection',
+                                 buttons = c('csv', 'excel', 'pdf'),
+                                 text = 'Download'
+                               ))),
+              class = "display",
+              #filter = list(position = 'top', clear = FALSE)
+    )})
+
+  output$testBox = renderUI({
+    box(title = "Filters for propert selection", style = boxStyle, width = 12  )
+  })
+
+  output$newPropDF = renderUI({
+    box(title = "selected by user props for new portfolio", style = boxStyle, width = 12,
+        DTOutput('portfolioDT'))
+  })
+
+  output$scrapedPropDF = renderUI({
+    box(title = "Properties that we have scraped", style = boxStyle, width = 12,
+        DTOutput("propertiesDT"))
+  })
+
+  ## value boxes
+  output$newPropBox1 <- renderValueBox({
+    # totalNum = nrow(startUp_csv) %>%
+    #   comma(digits = 0, big.mark = '.')
+
+    valueBox(
+      'title',"Total number of properties", icon = icon("list"),
+      color = "purple"
+    )
+  }
+  )
+
+  output$newPropBox2 <- renderValueBox({
+    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
+    #   currency(digits = 0L, "$ ", big.mark = '.')
+    valueBox(
+      'title', "Total portfolio volume in $", icon = icon("credit-card")
+    )
+  }
+  )
+
+  output$newPortfolioStat1 = renderUI({
+    box(title = "ggplots for new portfolio", style = boxStyle, width = 6  )
+  })
+  output$newPortfolioStat2 = renderUI({
+    box(title = "ggplots for new portfolio", style = boxStyle, width = 6  )
+  })
 }
 
 # Run the application
