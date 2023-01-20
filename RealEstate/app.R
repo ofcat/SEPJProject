@@ -38,17 +38,17 @@ ui <- dashboardPage(skin = "black",
   dashboardSidebar(
 #,badgeLabel = "new", badgeColor = "green"
     sidebarMenu(
-      menuItem("Open Data",  icon = icon("dashboard"),
+      menuItem("Open Data",  icon = icon("map"),
                menuSubItem("Vienna Open Data", tabName = "dashboard"),
-               menuSubItem("Open Data Dataset", tabName = "open_data_dataset")
+               menuSubItem("Open Data Dataset", tabName = "open_data_dataset",  icon = icon("database"))
                ),
-      menuItem("Portfolio Selection", icon = icon("th"),
+      menuItem("Portfolio Selection", icon = icon("globe"),
                menuSubItem("Create New Portfolio", tabName = "create_new_portfolio"),
-               menuSubItem("Explore Existing Portfolios", tabName = "explore_old_portfolios")
+               menuSubItem("Explore Existing Portfolios", tabName = "explore_old_portfolios",icon = icon("database"))
                ),
 
 
-      menuItem("Calculations", tabName = "calculations", icon = icon("dashboard"))
+      menuItem("Calculations", tabName = "calculations", icon = icon("signal"))
     )
 
   ),
@@ -72,19 +72,22 @@ ui <- dashboardPage(skin = "black",
         ),
         fluidRow(id='#second-row',
                  uiOutput('districtPriceBox'),
-                 uiOutput('districtPricePlotBox'),
                  uiOutput('districtPriceHistBox')
 
         ),
 
-        fluidRow(id = '#first-row',
-            uiOutput('mainDatasetBox')
+        fluidRow(
+          uiOutput('districtPricePlotBox')
+        ),
 
-            )
+        # fluidRow(id = '#first-row',
+        #     uiOutput('mainDatasetBox')
+        #
+        #     )
 
         ),
       tabItem(tabName = 'open_data_dataset',
-              fluidRow()
+              fluidRow(uiOutput('mainDatasetBox'))
               ),
 
       tabItem(tabName = "create_new_portfolio",
@@ -174,6 +177,16 @@ server <- function(input, output) {
         medianPrice = median(Kaufpreis, na.rm=TRUE)
       )
 
+  districtPrice_tbl2 = districtPrice_tbl
+
+  districtPrice_tbl2$PLZ = as.factor(districtPrice_tbl$PLZ)
+
+  districtPrice_boxPlot = select(buildingData, PLZ, Kaufpreis)
+  #%>% group_by(PLZ,Kaufpreis)
+
+  districtPrice_boxPlot$PLZ = as.factor(districtPrice_boxPlot$PLZ)
+
+  #plot_ly(districtPrice_boxPlot, x=~PLZ, y=~Kaufpreis, type="box")
 
   # Median Prices per District table
   #output$x1 <- DT::renderDataTable(districtPrice_tbl, server = FALSE)
@@ -188,29 +201,51 @@ server <- function(input, output) {
   })
 
 
-
+#HEREEEEEEEEEEEE FOR BOXPLOTS
 
   # Median Prices per District Scatter plot
   # highlight selected rows in the scatterplot
   output$x2 <- renderPlotly({
-    p <- plot_ly(districtPrice_tbl, x = ~PLZ, y = ~medianPrice ,mode = "markers",
-                 marker = list(opacity = 1, color = "black")) %>%
+    # p <- plot_ly(districtPrice_tbl2, x = ~PLZ, y = ~medianPrice ,mode = "markers",
+    #              marker = list(opacity = 1, color = "black"))
+    #p = plot_ly()
+    p = plot_ly(districtPrice_boxPlot, x=~PLZ, y=~Kaufpreis, type="box") %>%
       layout(
-             xaxis = list(
-                range=c(0,1900)
-              )
-            )
+        yaxis = list(
+          range=c(0,30000000)
+        )
+      )
+
     s <- input$x1_rows_selected
+
+    postcodes = c()
+    collectPostcodes = function(code) {
+      postcodes <<- c(postcodes, code)
+
+    }
+    # sapply(s, collectPostcodes(districtPrice_tbl[s]$PLZ))
+    sapply(s, function(x) collectPostcodes(districtPrice_tbl[s,]$PLZ))
+
+    # if (length(s)) {
+    #   p <- p %>%
+    #     add_trace(data = districtPrice_boxPlot[ , drop = FALSE],
+    #               x = ~PLZ, y = ~Kaufpreis,
+    #               marker = list(opacity = 0.2, color = "black")) %>%
+    #     layout(showlegend = FALSE) %>%
+    #     add_trace(data = districtPrice_boxPlot[s, , drop = FALSE],
+    #               x = ~PLZ, y = ~Kaufpreis,
+    #               marker = list(opacity = 1, color = "red")) %>%
+    #     layout(showlegend = FALSE)
+    # }
     if (length(s)) {
       p <- p %>%
-        add_trace(data = districtPrice_tbl[ , drop = FALSE],
-                  x = ~PLZ, y = ~medianPrice, mode = "markers",
-                  marker = list(opacity = 0.2, color = "black")) %>%
-        layout(showlegend = FALSE) %>%
-        add_trace(data = districtPrice_tbl[s, , drop = FALSE],
-                  x = ~PLZ, y = ~medianPrice, mode = "markers",
-                  marker = list(opacity = 1, color = "red")) %>%
-        layout(showlegend = FALSE)
+        add_trace(data = filter(districtPrice_boxPlot, PLZ %in% postcodes), type = 'box',
+                  x = ~PLZ, y = ~Kaufpreis, color = ~PLZ
+                  ) %>%
+        layout(showlegend = FALSE,
+               yaxis = list(
+                 range=c(0,30000000)
+               ))
     }
     p
   })
@@ -218,7 +253,7 @@ server <- function(input, output) {
 
 
   output$districtPricePlotBox = renderUI({
-    box(title = "Scatterplot", style= boxStyle, width = 4,
+    box(title = "Scatterplot", style= boxStyle, width = 12,
         plotlyOutput('x2'))
   })
   # Prices Histogram
@@ -232,9 +267,9 @@ server <- function(input, output) {
   districtPurpose$PLZ = as.factor(districtPurpose$PLZ)
   districtPurpose$zuordnung = as.factor(districtPurpose$zuordnung)
 
-  plot1010 = filter(districtPurpose, PLZ == 1010 | PLZ == 1020)
-  plot1010$PLZ = as.factor(plot1010$PLZ)
-  plot1010$zuordnung = as.factor(plot1010$zuordnung)
+  # plot1010 = filter(districtPurpose, PLZ == 1010 | PLZ == 1020)
+  # plot1010$PLZ = as.factor(plot1010$PLZ)
+  # plot1010$zuordnung = as.factor(plot1010$zuordnung)
 
 
   output$districtPriceHist = renderPlotly({
@@ -253,6 +288,7 @@ server <- function(input, output) {
   # sapply(s, collectPostcodes(districtPrice_tbl[s]$PLZ))
     sapply(s, function(x) collectPostcodes(districtPrice_tbl[s,]$PLZ))
 
+    #browser(postcodes)
   #print(postcodes)
     # only show selected PLZ in barplot
     if (length(s)) {
@@ -267,7 +303,7 @@ server <- function(input, output) {
   })
 
   output$districtPriceHistBox = renderUI({
-    box(title = "Project Purpose", style= boxStyle, width = 4,
+    box(title = "Project Purpose", style= boxStyle, width = 8,
         plotlyOutput('districtPriceHist'))
   })
 
@@ -389,9 +425,9 @@ server <- function(input, output) {
                              scrollX = TRUE,
                              dom = 'Bfrtip',
                              buttons =
-                               list('copy', 'print', list(
+                               list('copy', list(
                                  extend = 'collection',
-                                 buttons = c('csv', 'excel', 'pdf'),
+                                 buttons = c('csv', 'excel'),
                                  text = 'Download'
                                ))),
               class = "display",
