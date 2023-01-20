@@ -9,6 +9,7 @@ library(readr)
 library(ggplot2)
 library(plotly)
 library(dplyr)
+library(shinyWidgets)
 
 # you can put css here, but i would rather have it in a separte css file
 #check link below
@@ -87,6 +88,70 @@ ui <- dashboardPage(skin = "black",
 
         ),
       tabItem(tabName = 'open_data_dataset',
+              fluidRow(
+
+
+                #uiOutput('filtersBox')
+
+                  #output goes here
+                  box(title = "Filters", width = 12,
+                      ##first row of filters
+                      column(width = 3,
+                             selectInput(inputId = 'katastralgemeinde', label = 'Katastralgemeinde',
+                                         unique(buildingData$Katastralgemeinde), selected = NULL, multiple = T)
+                      )
+                      ,
+
+                      column(width = 3,
+                             selectInput(inputId = 'plz', label = 'Post Code',
+                                         unique(buildingData$PLZ), selected = NULL, multiple = T)   )
+                      ,
+
+                      column(width = 3,
+                             selectInput(inputId = 'erwArt', label = 'Contract type',
+                                         unique(buildingData$ErwArt), selected = NULL, multiple = T))
+                      ,
+                      column(width = 3,
+                             selectInput(inputId = 'erwDate', label = 'Contract date',
+                                         unique(buildingData$Erwerbsdatum), selected = NULL, multiple = T))
+                      ,
+
+                      ## second row of filters
+
+                      column(width = 3,
+                             selectInput(inputId = 'widmung', label = 'Widmung',
+                                         unique(buildingData$Widmung), selected = NULL, multiple = T)),
+                      column(width = 3,
+                             selectInput(inputId = 'bauklasse', label = 'Bauklasse',
+                                         unique(buildingData$Bauklasse), selected = NULL, multiple = T)),
+                      column(width = 3,
+                             selectInput(inputId = 'schutzzone', label = 'Schutzzone',
+                                         unique(buildingData$Schutzzone), selected = NULL, multiple = T)),
+                      column(width = 3,
+                             selectInput(inputId = 'wohnzone', label = 'wohnzone',
+                                         unique(buildingData$Wohnzone), selected = NULL, multiple = T)),
+                      ## third row of filters
+
+                      column(width = 6,
+                             sliderInput(inputId = 'priceSlider', label = 'Price',
+                                         min = 0,
+                                         max = 1,
+                                         value = 1
+                                         )),
+                      column(width = 6,
+                             sliderInput(inputId = 'areaSlider', label = 'Area',
+                                         min = 0,
+                                         max = 1,
+                                         value = 1
+                                          )),
+
+                  ),
+
+
+
+
+
+                ),
               fluidRow(uiOutput('mainDatasetBox'))
               ),
 
@@ -146,16 +211,73 @@ ui <- dashboardPage(skin = "black",
 
 
 # Define server logic required to draw a histogram
-server <- function(input, output) {
+server <- function(input, output,session) {
+
 
   buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
   names(buildingData)[names(buildingData) == 'Kaufpreis'] <- 'Kaufpreis'
   # some data cleaning definetely needed
   buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)#as.numeric(buildingData$Kaufpreis)
 
+  updateSliderInput(session, "priceSlider",
+                    min = min(buildingData$Kaufpreis),
+                    max = max(buildingData$Kaufpreis),
+                    value = mean(buildingData$Kaufpreis)
+  )
+
+  updateSliderInput(session, "areaSlider",
+                    min = min(buildingData$Gst.Fl.),
+                    max = max(buildingData$Gst.Fl.),
+                    value = mean(buildingData$Gst.Fl.)
+  )
+
+ ### FILTERS FOR DATASET PAGE
+
+  buildingDataReactive = reactive({
+
+    data = buildingData
+
+    if(!is.null(input$katastralgemeinde)){
+      data = data %>% filter(Katastralgemeinde %in% input$katastralgemeinde)
+    }
+    if(!is.null(input$plz)){
+      data = data %>% filter(PLZ %in% input$plz)
+    }
+    if(!is.null(input$erwArt)){
+      data = data %>% filter(ErwArt %in% input$erwArt)
+    }
+    if(!is.null(input$erwDate)){
+      data = data %>% filter(Erwerbsdatum %in% input$erwDate)
+    }
+    #SECOND ROW FILTERS
+    if(!is.null(input$widmung)){
+      data = data %>% filter(Widmung %in% input$widmung)
+    }
+    if(!is.null(input$bauklasse)){
+      data = data %>% filter(Bauklasse %in% input$bauklasse)
+    }
+    if(!is.null(input$schutzzone)){
+      data = data %>% filter(Schutzzone %in% input$schutzzone)
+    }
+    if(!is.null(input$wohnzone)){
+      data = data %>% filter(Wohnzone %in% input$wohnzone)
+    }
+    # THIRD ROW
+    # if(!is.null(input$region)){
+    #   data = data %>% filter(region %in% input$region)
+    # }
+    #data
+    return(data)
+  })
+
+
+
+
+
+
 # Main dataset shown on the title page
   output$mainDataset = renderDT(
-    datatable(buildingData,
+    datatable(buildingDataReactive(),
               options = list(pagelength = 300,
                              scrollX = TRUE), filter = list(position = 'top', clear = FALSE)
   ))
@@ -314,7 +436,7 @@ server <- function(input, output) {
     #   comma(digits = 0, big.mark = '.')
 
     valueBox(
-      'title',"Total number of properties", icon = icon("list"),
+      '42.657',"Total number of properties reported", icon = icon("list"),
       color = "purple"
     )
   }
