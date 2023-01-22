@@ -563,7 +563,7 @@ server <- function(input, output) {
   #importing dataset
 
   properties = read.csv(file = 'data/WillHaben_data_clean.csv')
-  properties = properties[,-1]
+  #properties = properties[,-1]
   properties$location = as.factor(properties$location)
 
   properties = properties %>%
@@ -572,8 +572,8 @@ server <- function(input, output) {
       annualRent = rentPrice * 12
     )
 
-  properties = properties[, c(5,4,3,2,7,8,1,6)]
-
+  #properties = properties[, c(5,4,3,2,7,8,1,6)]
+  properties = properties[, c(6,5,4,3,8,9,2,7,1)]
   #
   #properties$price = currency(properties$price, '\U20AC', digits = 0)
   # properties$rentPrice = currency(properties$rentPrice, '\U20AC', digits = 0)
@@ -660,7 +660,8 @@ server <- function(input, output) {
     newPortfolioRows <- input$propertiesDT_rows_selected
     #newPortfolioRows = c(1,2,3),
     testingSave <<- properties[newPortfolioRows,]
-    datatable(properties[newPortfolioRows,],
+    ###BUG HEREEEEEEEEEEEEEEEEEE
+    datatable(propertiesReactive()[newPortfolioRows,],
               extensions = 'Buttons',
               options = list(pagelength = 300,
                              scrollX = TRUE,
@@ -726,7 +727,7 @@ server <- function(input, output) {
   output$newPropBox2 <- renderValueBox({
     # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
     #   currency(digits = 0L, "$ ", big.mark = '.')
-    totalArea = sum(properties[input$propertiesDT_rows_selected,]$floor_area) %>%
+    totalArea = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$floor_area) %>%
       currency(digits = 0L, "", big.mark = '.')
     valueBox(
       totalArea, "Total area in portfolio (in m2)", icon = icon("credit-card"), color = 'green'
@@ -734,7 +735,7 @@ server <- function(input, output) {
   }
   )
   output$newPropBox3 <- renderValueBox({
-    totalCapital = sum(properties[input$propertiesDT_rows_selected,]$price) %>%
+    totalCapital = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$price) %>%
       currency(digits = 0L, "\U20AC ", big.mark = '.')
     valueBox(
       totalCapital, "Total portfolio volume in EUR", icon = icon("credit-card"), color = 'aqua'
@@ -743,7 +744,7 @@ server <- function(input, output) {
   )
 
   output$newPropBox4 <- renderValueBox({
-    totalAnnualRent = sum(properties[input$propertiesDT_rows_selected,]$annualRent) %>%
+    totalAnnualRent = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$annualRent) %>%
       currency(digits = 0L, "\U20AC ", big.mark = '.')
     valueBox(
       totalAnnualRent, "Annual rent revenue in EUR", icon = icon("credit-card"), color = 'olive'
@@ -752,8 +753,8 @@ server <- function(input, output) {
   )
 
   output$newPropBox5 <- renderValueBox({
-   totalPrice = sum(properties[input$propertiesDT_rows_selected,]$price)
-    totalArea = sum(properties[input$propertiesDT_rows_selected,]$floor_area)
+   totalPrice = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$price)
+    totalArea = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$floor_area)
     averagePricePerMeter = (totalPrice / totalArea) %>%
       currency(digits = 0L, "\U20AC ", big.mark = '.')
     valueBox(
@@ -768,20 +769,34 @@ server <- function(input, output) {
 
   output$newPortfolioChart1 = renderPlotly({
 
-     plot_ly(properties[input$propertiesDT_rows_selected,],
-             type="pie",
-             labels=properties[input$propertiesDT_rows_selected,]$location,
-             values=properties[input$propertiesDT_rows_selected,]$price,
-             textinfo='label+percent')
+     # plot_ly(properties[input$propertiesDT_rows_selected,],
+     #         type="pie",
+     #         labels=properties[input$propertiesDT_rows_selected,]$location,
+     #         values=properties[input$propertiesDT_rows_selected,]$price,
+     #         textinfo='label+percent')
+
+
+    # plot_ly(properties[propertiesReactive(),],
+    #         type="pie",
+    #         labels=properties[propertiesReactive(),]$location,
+    #         values=properties[propertiesReactive(),]$price,
+    #         textinfo='label+percent')
+
+    plot_ly(propertiesReactive()[input$propertiesDT_rows_selected,],
+            type="pie",
+            labels=propertiesReactive()[input$propertiesDT_rows_selected,]$location,
+            values=propertiesReactive()[input$propertiesDT_rows_selected,]$price,
+            textinfo='label+percent')
+
 
   })
 
   output$newPortfolioChart2 = renderPlotly({
 
-    plot_ly(properties[input$propertiesDT_rows_selected,],
+    plot_ly(propertiesReactive()[input$propertiesDT_rows_selected,],
             type="pie",
-            labels=properties[input$propertiesDT_rows_selected,]$location,
-            values=properties[input$propertiesDT_rows_selected,]$floor_area,
+            labels=propertiesReactive()[input$propertiesDT_rows_selected,]$location,
+            values=propertiesReactive()[input$propertiesDT_rows_selected,]$floor_area,
             textinfo='label+percent')
 
   })
