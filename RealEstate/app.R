@@ -13,7 +13,7 @@ library(shinyWidgets)
 library(reshape2)
 
 
-# Define UI for application
+# UI for application
 
 
 ui <- dashboardPage(skin = "black",
@@ -23,7 +23,8 @@ ui <- dashboardPage(skin = "black",
 
   dashboardHeader(title = "ODVRE Dashboard"),
   dashboardSidebar(
-#,badgeLabel = "new", badgeColor = "green"
+
+    ## creating menu for website navigation with two items and two subitems
     sidebarMenu(
       menuItem("Open Data",  icon = icon("map"),
                menuSubItem("Vienna Open Data", tabName = "dashboard"),
@@ -34,8 +35,6 @@ ui <- dashboardPage(skin = "black",
                menuSubItem("Explore Existing Portfolios", tabName = "explore_old_portfolios",icon = icon("database"))
                )
 
-
-     # menuItem("Calculations", tabName = "calculations", icon = icon("signal"))
     )
 
   ),
@@ -46,19 +45,20 @@ ui <- dashboardPage(skin = "black",
 
 
     tabItems(
+      # HOME PAGE
       tabItem(tabName = "dashboard",
-        # Boxes need to be put in a row
-        # fluid row id is used for css, but this should probably be deleted
+
         fluidRow(
-          #here for second row
+
           valueBoxOutput('totalCompaniesBox'),
           valueBoxOutput('totalCompaniesBox2'),
           valueBoxOutput('totalCompaniesBox3')
         ),
+
         fluidRow(id='#second-row',
+
                  uiOutput('districtPriceBox'),
                  uiOutput('districtPriceHistBox')
-
         ),
 
         fluidRow(
@@ -68,19 +68,15 @@ ui <- dashboardPage(skin = "black",
         fluidRow(
           uiOutput("html_out")
         )
-
-
-
         ),
+
+      # DATASET PAGE
       tabItem(tabName = 'open_data_dataset',
               fluidRow(
 
-
-                #uiOutput('filtersBox')
-
-                  #output goes here
-                  box(title = "Filters", width = 12,
-                      ##first row of filters
+                  # filters box for the Open Data Dataset
+                  box(title = "Search filters", width = 12,
+                      ## first row of filters
                       column(width = 3,
                              selectInput(inputId = 'katastralgemeinde', label = 'Katastralgemeinde',
                                          unique(buildingData$Katastralgemeinde), selected = NULL, multiple = T)
@@ -134,36 +130,23 @@ ui <- dashboardPage(skin = "black",
 
                   ),
 
-
-
-
-
                 ),
               fluidRow(uiOutput('mainDatasetBox'))
               ),
 
+      # CREATE NEW PORTFOLIO PAGE
       tabItem(tabName = "create_new_portfolio",
+              # general infoboxes from the top of the page
               fluidRow(
                 valueBoxOutput('generalInfoBox1'),
                 valueBoxOutput('generalInfoBox2'),
                 valueBoxOutput('generalInfoBox3')
 
               ),
-              # fluidRow(
-              #   uiOutput('testBox')
-              # ),
-              #
-              # fluidRow(
-              #   valueBoxOutput('selectedPropBox1'),
-              #   valueBoxOutput('selectedPropBox2'),
-              #   valueBoxOutput('selectedPropBox3')
-              #
-              # ),
               fluidRow(
+                ## Filters for Willhaben dataset
+                box(title = "Search filters", width = 12,
 
-
-                #output goes here
-                box(title = "Filters", width = 12,
                     ##first row of filters
                     column(width = 4,
                            selectInput(inputId = 'agency', label = 'Agency',
@@ -183,6 +166,7 @@ ui <- dashboardPage(skin = "black",
                                        value = c(26,750),
                                        step = 10
                            )),
+                    # second row
                     column(width = 4,
                            sliderInput(inputId = 'priceSlider2', label = 'Selling Price',
                                        min = 0,
@@ -211,9 +195,11 @@ ui <- dashboardPage(skin = "black",
 
               ),
               fluidRow(
+                # willhaben dataframe
                 uiOutput('scrapedPropDF')
               ),
 
+              # user selected portfolio infoboxes
               fluidRow(
                 valueBoxOutput('newPropBox1', width = 4),
                 valueBoxOutput('newPropBox2', width = 4),
@@ -221,20 +207,23 @@ ui <- dashboardPage(skin = "black",
 
               ),
               fluidRow(
-                valueBoxOutput('newPropBox4', width = 6),
-                valueBoxOutput('newPropBox3', width = 6)
+                valueBoxOutput('newPropBox4', width = 4),
+                valueBoxOutput('newPropBox3', width = 4),
+                valueBoxOutput('newPropBox6', width = 4)
               ),
 
+              # user selected portfolio dataframe
               fluidRow(
                 uiOutput('newPropDF'),
-                #actionButton("saveButton", "Save portfolio to the DB")
+
               ),
+              # pie charts for user selected portfolio
               fluidRow(
                 uiOutput('newPortfolioStat1'),
                 uiOutput('newPortfolioStat2'),
-                # textOutput("selected"),
-                # DTOutput('saveTest')
+
               ),
+              # mortgage calculator section
               fluidRow(
                 box(title = 'Mortgage Calculator', width = 4,
                     numericInput("principal", "Principal (loan amount)", 200000, min = 0, step = 1000),
@@ -254,10 +243,7 @@ ui <- dashboardPage(skin = "black",
               )
               ),
 
-      tabItem(tabName = "calculations",
 
-              fluidRow()
-              ),
       tabItem(tabName = 'explore_old_portfolios',
               fluidRow())
 
@@ -266,27 +252,19 @@ ui <- dashboardPage(skin = "black",
 
   )
 
-
-
-
 )
 
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
-  ##SETTING UP THE DB
 
-  library(RSQLite)
-  con <- dbConnect(SQLite(), dbname = "sepjDB.sqlite")
-  # dbWriteTable(con, "mtcars", mtcars)
-  # dbGetQuery(con, "select * from mtcars")
-
+  # data wrangling with Open Data Dataset
   buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
   names(buildingData)[names(buildingData) == 'Kaufpreis'] <- 'Kaufpreis'
-  # some data cleaning definitely needed
-  buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)#as.numeric(buildingData$Kaufpreis)
+  buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)
 
+  ## these functions did not work for some reason, i would look into this in my free time
   # updateSliderInput(session, "priceSlider",
   #                   min = min(buildingData$Kaufpreis),
   #                   max = max(buildingData$Kaufpreis),
@@ -300,6 +278,7 @@ server <- function(input, output) {
   # )
 
  ### FILTERS FOR DATASET PAGE
+  #creating reactive value for ODD (open data dataset) that will respond to user input in filters
 
   buildingDataReactive = reactive({
 
@@ -347,44 +326,45 @@ server <- function(input, output) {
 
 
 
-# Main dataset shown on the title page
+# ODD shown on the second page
   output$mainDataset = renderDT(
     datatable(buildingDataReactive(),
               options = list(pagelength = 300,
                              scrollX = TRUE), filter = list(position = 'top', clear = FALSE)
   ))
 
-  # styling applied to all boxes
+  # styling applied to all boxes shown on the dashboard
   boxStyle = "margin-left: 1rem; margin-right: 1rem;"
 
   #box used to display the table with the main dataset
   output$mainDatasetBox = renderUI({
-    box(title = "RE Data", style = boxStyle, width = 12,
+    box(title = "ODD (Open Data Dataset)", style = boxStyle, width = 12,
                  DTOutput('mainDataset')  )
   })
 
-  #Second row on dashboard tab
+  #Second row on home tab
   ## table with two columns, auto plotting with DT
+  # table used to shown median price per vienna district
+
   districtPrice_tbl = select(buildingData, PLZ, Kaufpreis) %>%
      group_by(PLZ) %>%
       summarise(
         medianPrice = median(Kaufpreis, na.rm=TRUE)
       )
 
-  districtPrice_tbl2 = districtPrice_tbl
 
+  districtPrice_tbl2 = districtPrice_tbl
   districtPrice_tbl2$PLZ = as.factor(districtPrice_tbl$PLZ)
 
+  # similar table, but used to create boxplots for all Vienna districts to analyse selling price
   districtPrice_boxPlot = select(buildingData, PLZ, Kaufpreis)
-  #%>% group_by(PLZ,Kaufpreis)
-
   districtPrice_boxPlot$PLZ = as.factor(districtPrice_boxPlot$PLZ)
 
-  #plot_ly(districtPrice_boxPlot, x=~PLZ, y=~Kaufpreis, type="box")
+
 
   # Median Prices per District table
-  #output$x1 <- DT::renderDataTable(districtPrice_tbl, server = FALSE)
 
+ #function and box to output median price per PLZ on the home tab
   output$x1 = renderDT(
     datatable(districtPrice_tbl)
                        %>% formatCurrency(2, '\U20AC', digits = 0))
@@ -395,14 +375,12 @@ server <- function(input, output) {
   })
 
 
-#HEREEEEEEEEEEEE FOR BOXPLOTS
 
-  # Median Prices per District Scatter plot
-  # highlight selected rows in the scatterplot
+
+  # Boxplot Prices per District
+  # highlight selected rows in the boxplot
   output$x2 <- renderPlotly({
-    # p <- plot_ly(districtPrice_tbl2, x = ~PLZ, y = ~medianPrice ,mode = "markers",
-    #              marker = list(opacity = 1, color = "black"))
-    #p = plot_ly()
+
     p = plot_ly(districtPrice_boxPlot, x=~PLZ, y=~Kaufpreis, type="box") %>%
       layout(
         yaxis = list(
@@ -410,27 +388,19 @@ server <- function(input, output) {
         )
       )
 
+    # accesing selected rows
     s <- input$x1_rows_selected
 
+    # collecting all postcodes from the datable to highlight them in the boxplot
     postcodes = c()
     collectPostcodes = function(code) {
       postcodes <<- c(postcodes, code)
 
     }
-    # sapply(s, collectPostcodes(districtPrice_tbl[s]$PLZ))
+
     sapply(s, function(x) collectPostcodes(districtPrice_tbl[s,]$PLZ))
 
-    # if (length(s)) {
-    #   p <- p %>%
-    #     add_trace(data = districtPrice_boxPlot[ , drop = FALSE],
-    #               x = ~PLZ, y = ~Kaufpreis,
-    #               marker = list(opacity = 0.2, color = "black")) %>%
-    #     layout(showlegend = FALSE) %>%
-    #     add_trace(data = districtPrice_boxPlot[s, , drop = FALSE],
-    #               x = ~PLZ, y = ~Kaufpreis,
-    #               marker = list(opacity = 1, color = "red")) %>%
-    #     layout(showlegend = FALSE)
-    # }
+    # highlighting here
     if (length(s)) {
       p <- p %>%
         add_trace(data = filter(districtPrice_boxPlot, PLZ %in% postcodes), type = 'box',
@@ -447,12 +417,12 @@ server <- function(input, output) {
 
 
   output$districtPricePlotBox = renderUI({
-    box(title = "Scatterplot", style= boxStyle, width = 12,
+    box(title = "Analysing Price Distribution in Vienna Districts", style= boxStyle, width = 12,
         plotlyOutput('x2'))
   })
-  # Prices Histogram
 
-
+  # Analysing project purpose per district
+  ##preparing the data
 
   districtPurpose = select(buildingData, PLZ, zuordnung) %>%
     group_by(zuordnung, PLZ) %>%
@@ -461,34 +431,28 @@ server <- function(input, output) {
   districtPurpose$PLZ = as.factor(districtPurpose$PLZ)
   districtPurpose$zuordnung = as.factor(districtPurpose$zuordnung)
 
-  # plot1010 = filter(districtPurpose, PLZ == 1010 | PLZ == 1020)
-  # plot1010$PLZ = as.factor(plot1010$PLZ)
-  # plot1010$zuordnung = as.factor(plot1010$zuordnung)
-
 
   output$districtPriceHist = renderPlotly({
-
-    #plot_ly(x=plot1010$zuordnung, y = plot1010$count, type = 'bar', color = plot1010$PLZ)
 
     p = plot_ly()
 
     s <- input$x1_rows_selected
+
     #loop through districtPrice_tbl with s as index to get all PLZ that are selected
+    #reusing the function
     postcodes = c()
     collectPostcodes = function(code) {
       postcodes <<- c(postcodes, code)
 
     }
-  # sapply(s, collectPostcodes(districtPrice_tbl[s]$PLZ))
+
     sapply(s, function(x) collectPostcodes(districtPrice_tbl[s,]$PLZ))
 
-    #browser(postcodes)
-  #print(postcodes)
+
     # only show selected PLZ in barplot
     if (length(s)) {
-      #browser(postcodes)
       p <- p %>%
-        add_bars(data = filter(districtPurpose, PLZ %in% postcodes), #[s , , drop = FALSE]
+        add_bars(data = filter(districtPurpose, PLZ %in% postcodes),
                   x = ~zuordnung, y = ~count,  type = 'bar', color = ~PLZ)
 
     }
@@ -497,15 +461,13 @@ server <- function(input, output) {
   })
 
   output$districtPriceHistBox = renderUI({
-    box(title = "Project Purpose", style= boxStyle, width = 8,
+    box(title = "Project Purpose Ditribution per District", style= boxStyle, width = 8,
         plotlyOutput('districtPriceHist'))
   })
 
 
-## value boxes
+## value boxes showed on top of the home tab
   output$totalCompaniesBox <- renderValueBox({
-    # totalNum = nrow(startUp_csv) %>%
-    #   comma(digits = 0, big.mark = '.')
 
     valueBox(
       '42.657',"Total number of properties recorded", icon = icon("list"),
@@ -523,8 +485,7 @@ server <- function(input, output) {
   }
   )
   output$totalCompaniesBox3 <- renderValueBox({
-    # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
-    # countClosed = nrow(startUp_csv)
+
      result = 80075611 %>%
        currency(digits = 0L, "", big.mark = '.')
      valueBox( result,
@@ -533,6 +494,9 @@ server <- function(input, output) {
     )
   }
   )
+
+  # map showed on the bottom the page
+  #taken from wien.gv.at
   output$html_out <- renderUI({
 
     tags$body(HTML('<div><script defer="defer" type="text/javascript"
@@ -540,9 +504,9 @@ server <- function(input, output) {
   })
 
 
-  ###second pagee
+  # SELECTING PORTFOLIO PAGE
 
-  ## value boxes
+  ## value boxes from the top pf the page
   output$generalInfoBox1 <- renderValueBox({
     totalNum = nrow(properties) %>%
       comma(digits = 0, big.mark = '.')
@@ -573,9 +537,11 @@ server <- function(input, output) {
   }
   )
 
-  ### PORTFOLIO SELECTION PAGE
 
-  #importing dataset
+
+  #importing dataset from willhaben
+
+  #some data manipulations
 
   properties = read.csv(file = 'data/WillHaben_data_clean.csv')
   #properties = properties[,-1]
@@ -589,10 +555,13 @@ server <- function(input, output) {
 
   #properties = properties[, c(5,4,3,2,7,8,1,6)]
   properties = properties[, c(6,5,4,3,8,9,2,7,1)]
-  #
-  #properties$price = currency(properties$price, '\U20AC', digits = 0)
+
+  # currency conversion done later in datatables
+  # properties$price = currency(properties$price, '\U20AC', digits = 0)
   # properties$rentPrice = currency(properties$rentPrice, '\U20AC', digits = 0)
   # properties$annualRent = currency(properties$annualRent, '\U20AC', digits = 0)
+
+  # creating reactive variable for filters
 
   propertiesReactive = reactive({
 
@@ -625,57 +594,60 @@ server <- function(input, output) {
   })
 
 
-  ## value boxes
-  output$selectedPropBox1 <- renderValueBox({
-    totalNum = nrow(properties) %>%
-      comma(digits = 0, big.mark = '.')
+  # ## value boxes
+  # output$selectedPropBox1 <- renderValueBox({
+  #   totalNum = nrow(properties) %>%
+  #     comma(digits = 0, big.mark = '.')
+  #
+  #   valueBox(
+  #     totalNum,"Total number of properties", icon = icon("list"),
+  #     color = "purple"
+  #   )
+  # }
+  # )
+  #
+  # output$selectedPropBox2 <- renderValueBox({
+  #   # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
+  #   #   currency(digits = 0L, "$ ", big.mark = '.')
+  #   valueBox(
+  #     'title', "Total portfolio volume in $", icon = icon("credit-card")
+  #   )
+  # }
+  # )
+  # output$selectedPropBox3 <- renderValueBox({
+  #   # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
+  #   # countClosed = nrow(startUp_csv)
+  #   # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
+  #   valueBox( 'title',
+  #             "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
+  #             color = "olive"
+  #   )
+  # }
+  # )
 
-    valueBox(
-      totalNum,"Total number of properties", icon = icon("list"),
-      color = "purple"
-    )
-  }
-  )
 
-  output$selectedPropBox2 <- renderValueBox({
-    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
-    #   currency(digits = 0L, "$ ", big.mark = '.')
-    valueBox(
-      'title', "Total portfolio volume in $", icon = icon("credit-card")
-    )
-  }
-  )
-  output$selectedPropBox3 <- renderValueBox({
-    # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
-    # countClosed = nrow(startUp_csv)
-    # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
-    valueBox( 'title',
-              "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
-              color = "olive"
-    )
-  }
-  )
 
-  #properties = buildingData[1:100,]
-
-  #output$propertiesDT <- DT::renderDataTable(properties, server = FALSE)
-  #currency(digits = 0L, "\U20AC", big.mark = '.')
+  # printing the main willhaben data to the page
   output$propertiesDT = renderDT(
     datatable(propertiesReactive(),
               options = list(pagelength = 300,
                              scrollX = TRUE), filter = list(position = 'top', clear = FALSE)
     ) %>% formatCurrency(c(4:6), '\U20AC', digits = 0))
 
+  # reactive function that holds selected rows from the main dataset --> not used
   selectedProperties = reactive({
     input$propertiesDT_rows_selected
   })
-  #newPortfolioRows <- input$propertiesDT_rows_selected
+
+
+  # rendering user filtered dataset
   output$portfolioDT = renderDT({
 
+    #accesing selected rows directly
     newPortfolioRows <- input$propertiesDT_rows_selected
-    #newPortfolioRows = c(1,2,3),
-    testingSave <<- properties[newPortfolioRows,]
-    ###BUG HEREEEEEEEEEEEEEEEEEE
+
+    #testingSave <<- properties[newPortfolioRows,]
+
     datatable(propertiesReactive()[newPortfolioRows,],
               extensions = 'Buttons',
               options = list(pagelength = 300,
@@ -693,44 +665,24 @@ server <- function(input, output) {
 
     })
 
-  # selectedRow <- eventReactive(input$propertiesDT_rows_selected,{
-  #   row.names(properties)[c(input$propertiesDT_rows_selected)]
-  # })
 
-  # observeEvent(input$saveButton, {
-  #   dtSave = properties[selectedProperties(),]
-  #  # dbWriteTable(con, "portfolios", properties[selectedProperties(),])
-  # })
-  # output$selected <- renderPrint({
-  #  # selectedRow()
-  #   #properties[ selectedRow(),]
-  #   selectedProperties()
-  #
-  # })
-  # output$saveTest = renderDT({
-  #   datatable(dtSave)
-  # })
 
-  #browser(selectedRow())
-
-  output$testBox = renderUI({
-    box(title = "Filters for propert selection", style = boxStyle, width = 12  )
-  })
+  # output$testBox = renderUI({
+  #   box(title = "Filters for propert selection", style = boxStyle, width = 12  )
+  # })
 
   output$newPropDF = renderUI({
-    box(title = "selected by user props for new portfolio", style = boxStyle, width = 12,
+    box(title = "Selected Portfolio", style = boxStyle, width = 12,
         DTOutput('portfolioDT'))
   })
 
   output$scrapedPropDF = renderUI({
-    box(title = "Properties that we have scraped", style = boxStyle, width = 12,
+    box(title = "Available Property Dataset", style = boxStyle, width = 12,
         DTOutput("propertiesDT"))
   })
 
-  ## value boxes
+  ## value boxes for user made portfolio
   output$newPropBox1 <- renderValueBox({
-    # totalNum = nrow(propertiesReactive()) %>%
-    #   comma(digits = 0, big.mark = '.')
 
     valueBox(
       length(input$propertiesDT_rows_selected),"№ of properties in portfolio", icon = icon("list"),
@@ -740,8 +692,7 @@ server <- function(input, output) {
   )
 
   output$newPropBox2 <- renderValueBox({
-    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
-    #   currency(digits = 0L, "$ ", big.mark = '.')
+
     totalArea = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$floor_area) %>%
       currency(digits = 0L, "", big.mark = '.')
     valueBox(
@@ -749,6 +700,7 @@ server <- function(input, output) {
     )
   }
   )
+
   output$newPropBox3 <- renderValueBox({
     totalCapital = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$price) %>%
       currency(digits = 0L, "\U20AC ", big.mark = '.')
@@ -778,10 +730,17 @@ server <- function(input, output) {
 
   }
   )
-  ## SAVING NEW PORTFOLIO TO DB
- # newPortfolioRows <- input$propertiesDT_rows_selected
-  #dbWriteTable(con, "portfolios", properties[selectedProperties(),])
 
+  output$newPropBox6 <- renderValueBox({
+    totalMontlyRent = sum(propertiesReactive()[input$propertiesDT_rows_selected,]$rentPrice) %>%
+      currency(digits = 0L, "\U20AC ", big.mark = '.')
+    valueBox(
+      totalMontlyRent, "Montly rent revenue in EUR", icon = icon("credit-card"), color = 'light-blue'
+    )
+  }
+  )
+
+  # pie charts for user made portfolio showing price and area distribution per district
   output$newPortfolioChart1 = renderPlotly({
 
 
@@ -804,6 +763,8 @@ server <- function(input, output) {
 
   })
 
+  # boxes for pie charts
+
   output$newPortfolioStat1 = renderUI({
     box(title = "Capital distribution per District", style = boxStyle, width = 6 ,
         plotlyOutput('newPortfolioChart1'))
@@ -814,26 +775,15 @@ server <- function(input, output) {
   })
 
 
-  output$mortgageCalc <- renderUI({
-
-   #  tags$body(HTML(
-   #  '<div style="width960px; padding-left:150px; padding-right:150px; position:relative;"><iframe
-   #  src ="https://www.mortgagecalculator.net/embeddable/v2/?size=1&textColor=003140&backgroundColor=e7f0f3"
-   #  width="100%" frameborder=0 scrolling=no height=330>
-   #  </iframe>
-   # </div>'))
-
-
-  })
 
   output$mortgageCalcBox = renderUI({
-    box(title = "ggplots for new portfolio", style = boxStyle, width = 8,
+    box(title = "Mortgage Amortisation Chart", style = boxStyle, width = 8,
         plotlyOutput('distPlot'))
   })
 
   #### MORTGAGE CALCULATOR
   ## inspired by Antoine Soetewey
-  ## taken from here, link: https://statsandr.com/blog/mortgage-calculator-r-shiny/
+  ## taken from link: https://statsandr.com/blog/mortgage-calculator-r-shiny/
   mortgage <- function(P = 500000, I = 6, L = 30, amort = TRUE, plotData = TRUE) {
     J <- I / (12 * 100)
     N <- 12 * L
@@ -886,7 +836,7 @@ server <- function(input, output) {
         theme_minimal() +
         theme(legend.title = element_blank(), legend.position = "top")
 
-   #plot_ly(aDFyear2, type = 'bar', x =~Year, y=~value)
+
    ggplotly(plot2)
     #}
   }
