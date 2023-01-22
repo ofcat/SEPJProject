@@ -11,28 +11,13 @@ library(plotly)
 library(dplyr)
 library(shinyWidgets)
 
-# you can put css here, but i would rather have it in a separte css file
-#check link below
-css <- "
 
-
-
-"
 # Define UI for application
 
 
 ui <- dashboardPage(skin = "black",
 
-  # Doesnt work with dashboardpage for some reason, all good when using fluidPage
-  # useShinyjs(),
-  # tags$style(HTML("
-  #                  #main-area {
-  #                     margin-left: 10rem;
-  #                     margin-right: 1rem;
-  #                     font-family: amalia;
-  #                     }
-  #
-  #                  ")),
+
 
 
   dashboardHeader(title = "ODVRE Dashboard"),
@@ -55,11 +40,9 @@ ui <- dashboardPage(skin = "black",
   ),
   dashboardBody(
 
-    # css doesnt work now, but here is the link to figure it out
-    # https://rstudio.github.io/shinydashboard/appearance.html#css
 
-    tags$head(tags$style(HTML(css))),
-    #tags$style(css),
+
+
 
     tabItems(
       tabItem(tabName = "dashboard",
@@ -81,10 +64,11 @@ ui <- dashboardPage(skin = "black",
           uiOutput('districtPricePlotBox')
         ),
 
-        # fluidRow(id = '#first-row',
-        #     uiOutput('mainDatasetBox')
-        #
-        #     )
+        fluidRow(
+          uiOutput("html_out")
+        )
+
+
 
         ),
       tabItem(tabName = 'open_data_dataset',
@@ -135,14 +119,16 @@ ui <- dashboardPage(skin = "black",
                       column(width = 6,
                              sliderInput(inputId = 'priceSlider', label = 'Price',
                                          min = 0,
-                                         max = 1,
-                                         value = 1
+                                         max = 168909500, #updateSlider function is not picking up for some reason, so hardcoding values for now
+                                         value = c(0,168909500),
+                                         step = 100000
                                          )),
                       column(width = 6,
                              sliderInput(inputId = 'areaSlider', label = 'Area',
                                          min = 0,
-                                         max = 1,
-                                         value = 1
+                                         max = 1187781,
+                                         value = c(0,1187781),
+                                         step = 100
                                           )),
 
                   ),
@@ -162,14 +148,65 @@ ui <- dashboardPage(skin = "black",
                 valueBoxOutput('generalInfoBox3')
 
               ),
+              # fluidRow(
+              #   uiOutput('testBox')
+              # ),
+              #
+              # fluidRow(
+              #   valueBoxOutput('selectedPropBox1'),
+              #   valueBoxOutput('selectedPropBox2'),
+              #   valueBoxOutput('selectedPropBox3')
+              #
+              # ),
               fluidRow(
-                uiOutput('testBox')
-              ),
 
-              fluidRow(
-                valueBoxOutput('selectedPropBox1'),
-                valueBoxOutput('selectedPropBox2'),
-                valueBoxOutput('selectedPropBox3')
+
+                #output goes here
+                box(title = "Filters", width = 12,
+                    ##first row of filters
+                    column(width = 4,
+                           selectInput(inputId = 'agency', label = 'Agency',
+                                       unique(properties$agency), selected = NULL, multiple = T)
+                    )
+                    ,
+
+                    column(width = 4,
+                           selectInput(inputId = 'location', label = 'Post Code',
+                                       unique(properties$location), selected = NULL, multiple = T)   )
+                    ,
+
+                    column(width = 4,
+                           sliderInput(inputId = 'areaSlider2', label = 'Property Area',
+                                       min = 26,
+                                       max = 750, #updateSlider function is not picking up for some reason, so hardcoding values for now
+                                       value = c(26,750),
+                                       step = 10
+                           )),
+                    column(width = 4,
+                           sliderInput(inputId = 'priceSlider2', label = 'Selling Price',
+                                       min = 0,
+                                       max = 15000000, #updateSlider function is not picking up for some reason, so hardcoding values for now
+                                       value = c(0,15000000),
+                                       step = 10000
+                           )),
+                    column(width = 4,
+                           sliderInput(inputId = 'rentSlider', label = 'Monthly Rent',
+                                       min = 0,
+                                       max = 105000, #updateSlider function is not picking up for some reason, so hardcoding values for now
+                                       value = c(0,105000),
+                                       step = 1000
+                           )),
+
+                    column(width = 4,
+                           sliderInput(inputId = 'annualRentSlider', label = 'Annual Rent Revenue',
+                                       min = 0,
+                                       max = 1260000, #updateSlider function is not picking up for some reason, so hardcoding values for now
+                                       value = c(0,1260000),
+                                       step = 10000
+                           ))
+
+                    )
+
 
               ),
               fluidRow(
@@ -177,19 +214,28 @@ ui <- dashboardPage(skin = "black",
               ),
 
               fluidRow(
-                valueBoxOutput('newPropBox1'),
-                valueBoxOutput('newPropBox2'),
+                valueBoxOutput('newPropBox1', width = 3),
+                valueBoxOutput('newPropBox2', width = 3),
+                valueBoxOutput('newPropBox3', width = 3),
+                valueBoxOutput('newPropBox4', width = 3),
+
 
 
               ),
 
               fluidRow(
-                uiOutput('newPropDF')
+                uiOutput('newPropDF'),
+                #actionButton("saveButton", "Save portfolio to the DB")
               ),
               fluidRow(
                 uiOutput('newPortfolioStat1'),
-                uiOutput('newPortfolioStat2')
+                uiOutput('newPortfolioStat2'),
+                # textOutput("selected"),
+                # DTOutput('saveTest')
               ),
+              fluidRow(
+                uiOutput('mortgageCalcBox')
+              )
               ),
 
       tabItem(tabName = "calculations",
@@ -211,25 +257,31 @@ ui <- dashboardPage(skin = "black",
 
 
 # Define server logic required to draw a histogram
-server <- function(input, output,session) {
+server <- function(input, output) {
 
+  ##SETTING UP THE DB
+
+  library(RSQLite)
+  con <- dbConnect(SQLite(), dbname = "sepjDB.sqlite")
+  # dbWriteTable(con, "mtcars", mtcars)
+  # dbGetQuery(con, "select * from mtcars")
 
   buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
   names(buildingData)[names(buildingData) == 'Kaufpreis'] <- 'Kaufpreis'
-  # some data cleaning definetely needed
+  # some data cleaning definitely needed
   buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)#as.numeric(buildingData$Kaufpreis)
 
-  updateSliderInput(session, "priceSlider",
-                    min = min(buildingData$Kaufpreis),
-                    max = max(buildingData$Kaufpreis),
-                    value = mean(buildingData$Kaufpreis)
-  )
-
-  updateSliderInput(session, "areaSlider",
-                    min = min(buildingData$Gst.Fl.),
-                    max = max(buildingData$Gst.Fl.),
-                    value = mean(buildingData$Gst.Fl.)
-  )
+  # updateSliderInput(session, "priceSlider",
+  #                   min = min(buildingData$Kaufpreis),
+  #                   max = max(buildingData$Kaufpreis),
+  #                   value = mean(buildingData$Kaufpreis)
+  # )
+  #
+  # updateSliderInput(session, "areaSlider",
+  #                   min = min(buildingData$Gst.Fl.),
+  #                   max = max(buildingData$Gst.Fl.),
+  #                   value = mean(buildingData$Gst.Fl.)
+  # )
 
  ### FILTERS FOR DATASET PAGE
 
@@ -263,10 +315,14 @@ server <- function(input, output,session) {
       data = data %>% filter(Wohnzone %in% input$wohnzone)
     }
     # THIRD ROW
-    # if(!is.null(input$region)){
-    #   data = data %>% filter(region %in% input$region)
-    # }
-    #data
+    if(!is.null(input$priceSlider)){
+      data = data %>% filter(Kaufpreis >= input$priceSlider[1] & Kaufpreis <= input$priceSlider[2])
+    }
+    if(!is.null(input$areaSlider)){
+      data = data %>% filter(Gst.Fl. >= input$areaSlider[1] & Gst.Fl. <= input$areaSlider[2])
+    }
+
+
     return(data)
   })
 
@@ -436,69 +492,129 @@ server <- function(input, output,session) {
     #   comma(digits = 0, big.mark = '.')
 
     valueBox(
-      '42.657',"Total number of properties reported", icon = icon("list"),
+      '42.657',"Total number of properties recorded", icon = icon("list"),
       color = "purple"
     )
   }
   )
 
   output$totalCompaniesBox2 <- renderValueBox({
-    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
-    #   currency(digits = 0L, "$ ", big.mark = '.')
+    totalCapital = sum(buildingData$Kaufpreis, na.rm = T) %>%
+      currency(digits = 0L, "\U20AC", big.mark = '.')
     valueBox(
-      'title', "Total portfolio volume in $", icon = icon("credit-card")
+      totalCapital, "Total trade volume", icon = icon("credit-card")
     )
   }
   )
   output$totalCompaniesBox3 <- renderValueBox({
     # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
     # countClosed = nrow(startUp_csv)
-    # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
-     valueBox( 'title',
-     "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
+     result = 80075611 %>%
+       currency(digits = 0L, "", big.mark = '.')
+     valueBox( result,
+     "Total RE area sold (in m2)", icon = icon("thumbs-up", lib = 'glyphicon'),
       color = "yellow"
     )
   }
   )
+  output$html_out <- renderUI({
+
+    tags$body(HTML('<div><script defer="defer" type="text/javascript"
+                   src="https://www.wien.gv.at/flaechenwidmung/public/ApiGetViennaGisMap.ctrl?containerWidth=1000&amp;containerHeight=500&amp;centerContainer=1&amp;lang=de&amp;bookmark=qM8fRQjROMQWCNFGEDnPRm3-cOJYRKZKu9yG4L0Gu3CftCQ-b-b&amp;bmadr="></script></div>'))
+  })
+
+
+  ###second pagee
 
   ## value boxes
   output$generalInfoBox1 <- renderValueBox({
-    # totalNum = nrow(startUp_csv) %>%
-    #   comma(digits = 0, big.mark = '.')
+    totalNum = nrow(properties) %>%
+      comma(digits = 0, big.mark = '.')
 
     valueBox(
-      'title',"Total number of properties", icon = icon("list"),
-      color = "purple"
+      totalNum,"Total number of properties", icon = icon("list"),
+      color = "maroon"
     )
   }
   )
 
   output$generalInfoBox2 <- renderValueBox({
-    # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
-    #   currency(digits = 0L, "$ ", big.mark = '.')
+    totalCapital = sum(properties$price, na.rm = TRUE) %>%
+      currency(digits = 0L, "\U20AC ", big.mark = '.')
     valueBox(
-      'title', "Total portfolio volume in $", icon = icon("credit-card")
+      totalCapital, "Total value", icon = icon("credit-card"),
+      color = 'aqua'
     )
   }
   )
   output$generalInfoBox3 <- renderValueBox({
-    # countOpenCompanies = nrow(filter(startUp_csv, status == 'operating' |status == 'acquired'))
-    # countClosed = nrow(startUp_csv)
-    # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
-    valueBox( 'title',
-              "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
-              color = "yellow"
+    totalArea = sum(properties$floor_area, na.rm = TRUE)%>%
+      currency(digits = 0L, "", big.mark = '.')
+    valueBox( totalArea,
+              "Total area avalaible (m2)", icon = icon("thumbs-up", lib = 'glyphicon'),
+              color = "teal"
     )
   }
   )
 
+  ### PORTFOLIO SELECTION PAGE
+
+  #importing dataset
+
+  properties = read.csv(file = 'data/WillHaben_data_clean.csv')
+  properties = properties[,-1]
+
+  properties = properties %>%
+    mutate(
+      rentPrice = price * 0.007,
+      annualRent = rentPrice * 12
+    )
+
+  properties = properties[, c(5,4,3,2,7,8,1,6)]
+
+  #
+  #properties$price = currency(properties$price, '\U20AC', digits = 0)
+  # properties$rentPrice = currency(properties$rentPrice, '\U20AC', digits = 0)
+  # properties$annualRent = currency(properties$annualRent, '\U20AC', digits = 0)
+
+  propertiesReactive = reactive({
+
+    data = properties
+
+    if(!is.null(input$agency)){
+      data = data %>% filter(agency %in% input$agency)
+    }
+    if(!is.null(input$location)){
+      data = data %>% filter(location %in% input$location)
+    }
+    if(!is.null(input$areaSlider2)){
+      data = data %>% filter(floor_area >= input$areaSlider2[1] & floor_area <= input$areaSlider2[2])
+    }
+
+    #SECOND ROW FILTERS
+    if(!is.null(input$priceSlider2)){
+      data = data %>% filter(price >= input$priceSlider2[1] & price <= input$priceSlider2[2])
+    }
+    if(!is.null(input$rentSlider)){
+      data = data %>% filter(rentPrice >= input$rentSlider[1] & rentPrice <= input$rentSlider[2])
+    }
+    if(!is.null(input$annualRentSlider)){
+      data = data %>% filter(annualRent >= input$annualRentSlider[1] & annualRent <= input$annualRentSlider[2])
+    }
+
+
+
+    return(data)
+  })
+
+
   ## value boxes
   output$selectedPropBox1 <- renderValueBox({
-    # totalNum = nrow(startUp_csv) %>%
-    #   comma(digits = 0, big.mark = '.')
+    totalNum = nrow(properties) %>%
+      comma(digits = 0, big.mark = '.')
 
     valueBox(
-      'title',"Total number of properties", icon = icon("list"),
+      totalNum,"Total number of properties", icon = icon("list"),
       color = "purple"
     )
   }
@@ -518,20 +634,20 @@ server <- function(input, output,session) {
     # result = formattable((countOpenCompanies/countClosed * 100), digits = 2, format = 'f')
     valueBox( 'title',
               "% of objects in workout", icon = icon("thumbs-up", lib = 'glyphicon'),
-              color = "yellow"
+              color = "olive"
     )
   }
   )
 
-  properties = buildingData[1:100,]
+  #properties = buildingData[1:100,]
 
   #output$propertiesDT <- DT::renderDataTable(properties, server = FALSE)
-
+  #currency(digits = 0L, "\U20AC", big.mark = '.')
   output$propertiesDT = renderDT(
-    datatable(properties,
+    datatable(propertiesReactive(),
               options = list(pagelength = 300,
                              scrollX = TRUE), filter = list(position = 'top', clear = FALSE)
-    ))
+    ) %>% formatCurrency(c(4:6), '\U20AC', digits = 0))
 
   selectedProperties = reactive({
     input$propertiesDT_rows_selected
@@ -541,6 +657,7 @@ server <- function(input, output,session) {
 
     newPortfolioRows <- input$propertiesDT_rows_selected
     #newPortfolioRows = c(1,2,3),
+    testingSave <<- properties[newPortfolioRows,]
     datatable(properties[newPortfolioRows,],
               extensions = 'Buttons',
               options = list(pagelength = 300,
@@ -554,7 +671,29 @@ server <- function(input, output,session) {
                                ))),
               class = "display",
               #filter = list(position = 'top', clear = FALSE)
-    )})
+    )%>% formatCurrency(c(4:6), '\U20AC', digits = 0)
+
+    })
+
+  # selectedRow <- eventReactive(input$propertiesDT_rows_selected,{
+  #   row.names(properties)[c(input$propertiesDT_rows_selected)]
+  # })
+
+  # observeEvent(input$saveButton, {
+  #   dtSave = properties[selectedProperties(),]
+  #  # dbWriteTable(con, "portfolios", properties[selectedProperties(),])
+  # })
+  # output$selected <- renderPrint({
+  #  # selectedRow()
+  #   #properties[ selectedRow(),]
+  #   selectedProperties()
+  #
+  # })
+  # output$saveTest = renderDT({
+  #   datatable(dtSave)
+  # })
+
+  #browser(selectedRow())
 
   output$testBox = renderUI({
     box(title = "Filters for propert selection", style = boxStyle, width = 12  )
@@ -572,11 +711,11 @@ server <- function(input, output,session) {
 
   ## value boxes
   output$newPropBox1 <- renderValueBox({
-    # totalNum = nrow(startUp_csv) %>%
+    # totalNum = nrow(propertiesReactive()) %>%
     #   comma(digits = 0, big.mark = '.')
 
     valueBox(
-      'title',"Total number of properties", icon = icon("list"),
+      length(input$propertiesDT_rows_selected),"№ of properties in portfolio", icon = icon("list"),
       color = "purple"
     )
   }
@@ -585,11 +724,33 @@ server <- function(input, output,session) {
   output$newPropBox2 <- renderValueBox({
     # totalCapital = sum(startUp_csv$funding_total_usd, na.rm = TRUE) %>%
     #   currency(digits = 0L, "$ ", big.mark = '.')
+    totalArea = sum(properties[input$propertiesDT_rows_selected,]$floor_area) %>%
+      currency(digits = 0L, "", big.mark = '.')
     valueBox(
-      'title', "Total portfolio volume in $", icon = icon("credit-card")
+      totalArea, "Total area in portfolio (in m2)", icon = icon("credit-card"),
     )
   }
   )
+  output$newPropBox3 <- renderValueBox({
+    totalCapital = sum(properties[input$propertiesDT_rows_selected,]$price) %>%
+      currency(digits = 0L, "\U20AC ", big.mark = '.')
+    valueBox(
+      totalCapital, "Total portfolio volume in EUR", icon = icon("credit-card"),
+    )
+  }
+  )
+
+  output$newPropBox4 <- renderValueBox({
+    totalAnnualRent = sum(properties[input$propertiesDT_rows_selected,]$annualRent) %>%
+      currency(digits = 0L, "\U20AC ", big.mark = '.')
+    valueBox(
+      totalAnnualRent, "Annual rent revenue in EUR", icon = icon("credit-card"),
+    )
+  }
+  )
+  ## SAVING NEW PORTFOLIO TO DB
+ # newPortfolioRows <- input$propertiesDT_rows_selected
+  #dbWriteTable(con, "portfolios", properties[selectedProperties(),])
 
   output$newPortfolioStat1 = renderUI({
     box(title = "ggplots for new portfolio", style = boxStyle, width = 6  )
@@ -597,7 +758,24 @@ server <- function(input, output,session) {
   output$newPortfolioStat2 = renderUI({
     box(title = "ggplots for new portfolio", style = boxStyle, width = 6  )
   })
+
+
+  output$mortgageCalc <- renderUI({
+
+    tags$body(HTML(
+    '<div style="width960px; padding-left:150px; padding-right:150px; position:relative;"><iframe
+    src ="https://www.mortgagecalculator.net/embeddable/v2/?size=1&textColor=003140&backgroundColor=e7f0f3"
+    width="100%" frameborder=0 scrolling=no height=330>
+    </iframe>
+   </div>'))
+  })
+
+  output$mortgageCalcBox = renderUI({
+    box(title = "ggplots for new portfolio", style = boxStyle, width = 12,
+        uiOutput('mortgageCalc'))
+  })
 }
+
 
 # Run the application
 shinyApp(ui = ui, server = server)
