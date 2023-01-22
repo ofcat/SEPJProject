@@ -214,13 +214,14 @@ ui <- dashboardPage(skin = "black",
               ),
 
               fluidRow(
-                valueBoxOutput('newPropBox1', width = 3),
-                valueBoxOutput('newPropBox2', width = 3),
-                valueBoxOutput('newPropBox3', width = 3),
-                valueBoxOutput('newPropBox4', width = 3),
+                valueBoxOutput('newPropBox1', width = 4),
+                valueBoxOutput('newPropBox2', width = 4),
+                valueBoxOutput('newPropBox5', width = 4)
 
-
-
+              ),
+              fluidRow(
+                valueBoxOutput('newPropBox4', width = 6),
+                valueBoxOutput('newPropBox3', width = 6)
               ),
 
               fluidRow(
@@ -563,6 +564,7 @@ server <- function(input, output) {
 
   properties = read.csv(file = 'data/WillHaben_data_clean.csv')
   properties = properties[,-1]
+  properties$location = as.factor(properties$location)
 
   properties = properties %>%
     mutate(
@@ -727,7 +729,7 @@ server <- function(input, output) {
     totalArea = sum(properties[input$propertiesDT_rows_selected,]$floor_area) %>%
       currency(digits = 0L, "", big.mark = '.')
     valueBox(
-      totalArea, "Total area in portfolio (in m2)", icon = icon("credit-card"),
+      totalArea, "Total area in portfolio (in m2)", icon = icon("credit-card"), color = 'green'
     )
   }
   )
@@ -735,7 +737,7 @@ server <- function(input, output) {
     totalCapital = sum(properties[input$propertiesDT_rows_selected,]$price) %>%
       currency(digits = 0L, "\U20AC ", big.mark = '.')
     valueBox(
-      totalCapital, "Total portfolio volume in EUR", icon = icon("credit-card"),
+      totalCapital, "Total portfolio volume in EUR", icon = icon("credit-card"), color = 'aqua'
     )
   }
   )
@@ -744,19 +746,53 @@ server <- function(input, output) {
     totalAnnualRent = sum(properties[input$propertiesDT_rows_selected,]$annualRent) %>%
       currency(digits = 0L, "\U20AC ", big.mark = '.')
     valueBox(
-      totalAnnualRent, "Annual rent revenue in EUR", icon = icon("credit-card"),
+      totalAnnualRent, "Annual rent revenue in EUR", icon = icon("credit-card"), color = 'olive'
     )
+  }
+  )
+
+  output$newPropBox5 <- renderValueBox({
+   totalPrice = sum(properties[input$propertiesDT_rows_selected,]$price)
+    totalArea = sum(properties[input$propertiesDT_rows_selected,]$floor_area)
+    averagePricePerMeter = (totalPrice / totalArea) %>%
+      currency(digits = 0L, "\U20AC ", big.mark = '.')
+    valueBox(
+      averagePricePerMeter, "Average price per sqm in EUR", icon = icon("credit-card"), color = 'olive'
+    )
+
   }
   )
   ## SAVING NEW PORTFOLIO TO DB
  # newPortfolioRows <- input$propertiesDT_rows_selected
   #dbWriteTable(con, "portfolios", properties[selectedProperties(),])
 
+  output$newPortfolioChart1 = renderPlotly({
+
+     plot_ly(properties[input$propertiesDT_rows_selected,],
+             type="pie",
+             labels=properties[input$propertiesDT_rows_selected,]$location,
+             values=properties[input$propertiesDT_rows_selected,]$price,
+             textinfo='label+percent')
+
+  })
+
+  output$newPortfolioChart2 = renderPlotly({
+
+    plot_ly(properties[input$propertiesDT_rows_selected,],
+            type="pie",
+            labels=properties[input$propertiesDT_rows_selected,]$location,
+            values=properties[input$propertiesDT_rows_selected,]$floor_area,
+            textinfo='label+percent')
+
+  })
+
   output$newPortfolioStat1 = renderUI({
-    box(title = "ggplots for new portfolio", style = boxStyle, width = 6  )
+    box(title = "Capital distribution per District", style = boxStyle, width = 6 ,
+        plotlyOutput('newPortfolioChart1'))
   })
   output$newPortfolioStat2 = renderUI({
-    box(title = "ggplots for new portfolio", style = boxStyle, width = 6  )
+    box(title = "Area Distribution per District", style = boxStyle, width = 6,
+        plotlyOutput('newPortfolioChart2'))
   })
 
 
