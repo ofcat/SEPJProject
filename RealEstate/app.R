@@ -10,6 +10,7 @@ library(ggplot2)
 library(plotly)
 library(dplyr)
 library(shinyWidgets)
+library(reshape2)
 
 
 # Define UI for application
@@ -31,10 +32,10 @@ ui <- dashboardPage(skin = "black",
       menuItem("Portfolio Selection", icon = icon("globe"),
                menuSubItem("Create New Portfolio", tabName = "create_new_portfolio"),
                menuSubItem("Explore Existing Portfolios", tabName = "explore_old_portfolios",icon = icon("database"))
-               ),
+               )
 
 
-      menuItem("Calculations", tabName = "calculations", icon = icon("signal"))
+     # menuItem("Calculations", tabName = "calculations", icon = icon("signal"))
     )
 
   ),
@@ -235,6 +236,20 @@ ui <- dashboardPage(skin = "black",
                 # DTOutput('saveTest')
               ),
               fluidRow(
+                box(title = 'Mortgage Calculator', width = 4,
+                    numericInput("principal", "Principal (loan amount)", 200000, min = 0, step = 1000),
+                    hr(),
+                    numericInput("interest", "Annual interest rate (in %)", 2, min = 0, max = 100, step = 0.01),
+                    hr(),
+                    sliderInput("length", "Duration of the loan (in years)",
+                                min = 0,
+                                max = 30,
+                                value = 25,
+                                step = 1
+                    ),
+                    uiOutput('MortgageResults')
+
+                    ),
                 uiOutput('mortgageCalcBox')
               )
               ),
@@ -769,18 +784,6 @@ server <- function(input, output) {
 
   output$newPortfolioChart1 = renderPlotly({
 
-     # plot_ly(properties[input$propertiesDT_rows_selected,],
-     #         type="pie",
-     #         labels=properties[input$propertiesDT_rows_selected,]$location,
-     #         values=properties[input$propertiesDT_rows_selected,]$price,
-     #         textinfo='label+percent')
-
-
-    # plot_ly(properties[propertiesReactive(),],
-    #         type="pie",
-    #         labels=properties[propertiesReactive(),]$location,
-    #         values=properties[propertiesReactive(),]$price,
-    #         textinfo='label+percent')
 
     plot_ly(propertiesReactive()[input$propertiesDT_rows_selected,],
             type="pie",
@@ -813,19 +816,107 @@ server <- function(input, output) {
 
   output$mortgageCalc <- renderUI({
 
-    tags$body(HTML(
-    '<div style="width960px; padding-left:150px; padding-right:150px; position:relative;"><iframe
-    src ="https://www.mortgagecalculator.net/embeddable/v2/?size=1&textColor=003140&backgroundColor=e7f0f3"
-    width="100%" frameborder=0 scrolling=no height=330>
-    </iframe>
-   </div>'))
+   #  tags$body(HTML(
+   #  '<div style="width960px; padding-left:150px; padding-right:150px; position:relative;"><iframe
+   #  src ="https://www.mortgagecalculator.net/embeddable/v2/?size=1&textColor=003140&backgroundColor=e7f0f3"
+   #  width="100%" frameborder=0 scrolling=no height=330>
+   #  </iframe>
+   # </div>'))
+
+
   })
 
   output$mortgageCalcBox = renderUI({
-    box(title = "ggplots for new portfolio", style = boxStyle, width = 12,
-        uiOutput('mortgageCalc'))
+    box(title = "ggplots for new portfolio", style = boxStyle, width = 8,
+        plotlyOutput('distPlot'))
   })
+
+  #### MORTGAGE CALCULATOR
+  ## inspired by Antoine Soetewey
+  ## taken from here, link: https://statsandr.com/blog/mortgage-calculator-r-shiny/
+  mortgage <- function(P = 500000, I = 6, L = 30, amort = TRUE, plotData = TRUE) {
+    J <- I / (12 * 100)
+    N <- 12 * L
+    M <- P * J / (1 - (1 + J)^(-N))
+    monthPay <<- M
+    # Calculate Amortization for each Month
+    if (amort == TRUE) {
+      Pt <- P # current principal or amount of the loan
+      currP <- NULL
+      while (Pt >= 0) {
+        H <- Pt * J # this is the current monthly interest
+        C <- M - H # this is your monthly payment minus your monthly interest, so it is the amount of principal you pay for that month
+        Q <- Pt - C # this is the new balance of your principal of your loan
+        Pt <- Q # sets P equal to Q and goes back to step 1. The loop continues until the value Q (and hence P) goes to zero
+        currP <- c(currP, Pt)
+      }
+      monthP <- c(P, currP[1:(length(currP) - 1)]) - currP
+      aDFmonth <<- data.frame(
+        Month = 1:length(currP),
+        Year = sort(rep(1:ceiling(N / 12), 12))[1:length(monthP)],
+        Balance = c(currP[1:(length(currP))]),
+        Payment = monthP + c((monthPay - monthP)[1:(length(monthP))]),
+        Principal = monthP,
+        Interest = c((monthPay - monthP)[1:(length(monthP))])
+      )
+      aDFmonth <<- subset(aDFmonth, Year <= L * 12)
+      aDFyear <- data.frame(
+        Amortization = tapply(aDFmonth$Balance, aDFmonth$Year, max),
+        Annual_Payment = tapply(aDFmonth$Payment, aDFmonth$Year, sum),
+        Annual_Principal = tapply(aDFmonth$Principal, aDFmonth$Year, sum),
+        Annual_Interest = tapply(aDFmonth$Interest, aDFmonth$Year, sum),
+        Year = as.factor(na.omit(unique(aDFmonth$Year)))
+      )
+      aDFyear <<- aDFyear
+    }
+   # if (plotData == TRUE) {
+      aDFyear2 <- aDFyear %>%
+        rename(
+          Interest = Annual_Interest,
+          Payment = Annual_Payment,
+          Principal = Annual_Principal
+        )
+      aDFyear2$Year <- as.factor(aDFyear2$Year)
+      aDFyear2 <- melt(aDFyear2[, c("Interest", "Principal", "Year")], id.vars = "Year")
+
+   plot2 <- ggplot(aDFyear2, aes(x = Year, y = value, fill = variable)) +
+        geom_bar(position = "fill", stat = "identity") +
+        labs(y = "Payment") +
+       scale_y_continuous(labels = percent) +
+        theme_minimal() +
+        theme(legend.title = element_blank(), legend.position = "top")
+
+   #plot_ly(aDFyear2, type = 'bar', x =~Year, y=~value)
+   ggplotly(plot2)
+    #}
+  }
+
+  output$distPlot <- renderPlotly({
+    mortgage(P = input$principal, I = input$interest, L = input$length, plotData = TRUE)
+  })
+
+  output$MortgageResults <- renderUI({
+    mortgage(P = input$principal, I = input$interest, L = input$length, plotData = FALSE)
+    HTML(paste0(
+      "<h3>", "Summary", "</h3>",
+      "Principal (loan amount): ", format(round(input$principal, 2), big.mark = ","),
+      "<br>",
+      "Annual interest rate: ", input$interest, "%",
+      "<br>",
+      "Term: ", input$length, " years (", input$length * 12, " months)",
+      "<br>",
+      "<b>", "Monthly payment: ", format(round(monthPay, digits = 2), big.mark = ","), "</b>",
+      "<br>",
+      "<b>", "Total cost: ", "</b>", format(round(input$principal, 2), big.mark = ","), " (principal) + ", format(round(monthPay * 12 * input$length - input$principal, 2), big.mark = ","), " (interest) = ", "<b>", format(round(monthPay * 12 * input$length, digits = 2), big.mark = ","), "</b>"
+    ))
+  })
+
+
+
 }
+
+
+
 
 
 # Run the application
