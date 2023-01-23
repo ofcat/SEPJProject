@@ -11,8 +11,11 @@ library(plotly)
 library(dplyr)
 library(shinyWidgets)
 library(reshape2)
+library(formattable)
 
-
+# had to move data import here, otherwise the application doesn't work correctly
+buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
+properties = read.csv(file = 'data/WillHaben_data_clean.csv')
 # UI for application
 
 
@@ -260,7 +263,7 @@ server <- function(input, output) {
 
 
   # data wrangling with Open Data Dataset
-  buildingData = read.table("data/dataRealEstate.txt", sep = ";", header = TRUE)
+
   names(buildingData)[names(buildingData) == 'Kaufpreis'] <- 'Kaufpreis'
   buildingData$Kaufpreis = parse_number(buildingData$Kaufpreis)
 
@@ -543,7 +546,7 @@ server <- function(input, output) {
 
   #some data manipulations
 
-  properties = read.csv(file = 'data/WillHaben_data_clean.csv')
+
   #properties = properties[,-1]
   properties$location = as.factor(properties$location)
 
